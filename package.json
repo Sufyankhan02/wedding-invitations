@@ -20,6 +20,7 @@
   "dependencies": {
     "@hono/node-server": "^1.8.0",
     "@supabase/supabase-js": "^2.93.3",
+    "@vercel/analytics": "^1.6.1",
     "body-parser": "^2.2.2",
     "caniuse-lite": "^1.0.30001757",
     "class-variance-authority": "^0.7.1",
