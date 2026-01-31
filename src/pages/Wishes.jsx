@@ -1,0 +1,400 @@
+import { motion, AnimatePresence } from 'framer-motion'
+import Confetti from 'react-confetti';
+import Marquee from "@/components/ui/marquee";
+import {
+    Calendar,
+    Clock,
+    ChevronDown,
+    User,
+    MessageCircle,
+    Send,
+    Smile,
+    CheckCircle,
+    XCircle,
+    HelpCircle,
+    Loader2,
+} from 'lucide-react'
+import { useState, useEffect } from 'react';
+import { formatEventDate } from '@/lib/formatEventDate';
+import { useInvitation } from '@/context/InvitationContext';
+import { fetchWishes, createWish } from '@/services/api';
+import { safeBase64 } from '@/lib/base64';
+
+export default function Wishes() {
+    const { uid } = useInvitation();
+    const [showConfetti, setShowConfetti] = useState(false);
+    const [newWish, setNewWish] = useState('');
+    const [guestName, setGuestName] = useState('');
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [attendance, setAttendance] = useState('');
+    const [isOpen, setIsOpen] = useState(false);
+    const [wishes, setWishes] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(null);
+
+    // Get guest name from URL parameter
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const guestParam = urlParams.get('guest');
+
+        if (guestParam) {
+            try {
+                const decodedName = safeBase64.decode(guestParam);
+                setGuestName(decodedName);
+            } catch (error) {
+                console.error('Error decoding guest name:', error);
+                setGuestName('');
+            }
+        }
+    }, []);
+
+    const options = [
+        { value: 'ATTENDING', label: 'Yes, I will attend' },
+        { value: 'NOT_ATTENDING', label: 'No, I won’t be able to attend' },
+        { value: 'MAYBE', label: 'Maybe, I will confirm later' }
+    ];
+
+    // Fetch wishes on component mount
+    useEffect(() => {
+        if (!uid) {
+            setError('Invitation UID not found. Please check your URL.');
+            setIsLoading(false);
+            return;
+        }
+
+        const loadWishes = async () => {
+            try {
+                setIsLoading(true);
+                const response = await fetchWishes(uid);
+                if (response.success) {
+                    setWishes(response.data);
+                }
+            } catch (err) {
+                console.error('Error loading wishes:', err);
+                setError(err.message);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        loadWishes();
+    }, [uid]);
+
+    const handleSubmitWish = async (e) => {
+        e.preventDefault();
+        if (!newWish.trim() || !guestName.trim()) return;
+
+        if (!uid) {
+            // If UID is missing, try to get it from the config or fallback
+            console.warn('Invitation UID missing in context, attempting to recover...');
+            // We can't easily recover it if it's not in the URL, but we can prevent the alert
+            // and perhaps try to use a default if we are in a dev environment or just show a more helpful error.
+            // For now, let's just log it and maybe alert with a specific instruction if it persists.
+            alert('Invitation UID not found. Please ensure you are accessing the invitation via the correct link (e.g., /couple-name).');
+            return;
+        }
+
+        setIsSubmitting(true);
+        setError(null);
+
+        try {
+            const response = await createWish(uid, {
+                name: guestName.trim(),
+                message: newWish.trim(),
+                attendance: attendance || 'MAYBE'
+            });
+
+            if (response.success) {
+                // Add the new wish to the top of the list
+                setWishes(prev => [response.data, ...prev]);
+                // Reset form
+                setNewWish('');
+                setGuestName('');
+                setAttendance('');
+                // Show confetti
+                setShowConfetti(true);
+                setTimeout(() => setShowConfetti(false), 3000);
+            }
+        } catch (err) {
+            console.error('Error submitting wish:', err);
+            setError(err.message);
+            alert('Gagal mengirim pesan: ' + err.message);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+    const getAttendanceIcon = (status) => {
+        const normalizedStatus = status?.toLowerCase();
+        switch (normalizedStatus) {
+            case 'attending':
+                return <CheckCircle className="w-4 h-4 text-emerald-500" />;
+            case 'not_attending':
+            case 'not-attending':
+                return <XCircle className="w-4 h-4 text-rose-500" />;
+            case 'maybe':
+                return <HelpCircle className="w-4 h-4 text-amber-500" />;
+            default:
+                return null;
+        }
+    };
+    return (<>
+        <section id="wishes" className="min-h-screen relative overflow-hidden">
+            {showConfetti && <Confetti recycle={false} numberOfPieces={200} />}
+            <div className="container mx-auto px-4 py-20 relative z-10">
+                {/* Section Header */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.8 }}
+                    className="text-center space-y-4 mb-16"
+                >
+                    <motion.span
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2 }}
+                        className="inline-block text-rose-500 font-medium"
+                    >
+                        Send Your Prayers and Best Wishes
+                    </motion.span>
+
+                    <motion.h2
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3 }}
+                        className="text-4xl md:text-5xl font-serif text-gray-800"
+                    >
+                        Messages & Prayers
+
+                    </motion.h2>
+
+                    {/* Decorative Divider */}
+                    <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ delay: 0.4 }}
+                        className="flex items-center justify-center gap-4 pt-4"
+                    >
+                        <div className="h-[1px] w-12 bg-rose-200" />
+                        <MessageCircle className="w-5 h-5 text-rose-400" />
+                        <div className="h-[1px] w-12 bg-rose-200" />
+                    </motion.div>
+                </motion.div>
+
+                {/* Wishes List - HIDDEN FOR PRIVACY */}
+                {/* 
+                <div className="max-w-2xl mx-auto space-y-6">
+                    {isLoading && (
+                        <div className="flex justify-center items-center py-12">
+                            <Loader2 className="w-8 h-8 text-rose-500 animate-spin" />
+                            <span className="ml-3 text-gray-600">Memuat pesan...</span>
+                        </div>
+                    )}
+
+                    {error && !isLoading && (
+                        <div className="text-center py-8">
+                            <p className="text-rose-600">{error}</p>
+                        </div>
+                    )}
+
+                    {!isLoading && !error && wishes.length === 0 && (
+                        <div className="text-center py-12">
+                            <MessageCircle className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                            <p className="text-gray-500">Belum ada pesan. Jadilah yang pertama!</p>
+                        </div>
+                    )}
+
+                    {!isLoading && wishes.length > 0 && (
+                        <AnimatePresence>
+                            <Marquee
+                                pauseOnHover={true}
+                                repeat={2}
+                                className="[--duration:40s] [--gap:1rem] py-2"
+                            >
+                                {wishes.map((wish, index) => (
+                                <motion.div
+                                    key={wish.id}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -20 }}
+                                    transition={{ delay: index * 0.1 }}
+                                    className="group relative w-[320px]"
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-r from-rose-100/50 to-pink-100/50 rounded-xl transform transition-transform group-hover:scale-[1.02] duration-300" />
+
+                                    <div className="relative backdrop-blur-sm bg-white/80 p-4 rounded-xl border border-rose-100/50 shadow-md">
+                                        <div className="flex items-start space-x-3 mb-2">
+                                            <div className="flex-shrink-0">
+                                                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-rose-400 to-pink-400 flex items-center justify-center text-white text-sm font-medium">
+                                                    {wish.name[0].toUpperCase()}
+                                                </div>
+                                            </div>
+
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center space-x-2">
+                                                    <h4 className="font-medium text-gray-800 text-sm truncate">
+                                                        {wish.name}
+                                                    </h4>
+                                                    {getAttendanceIcon(wish.attending)}
+                                                </div>
+                                                <div className="flex items-center space-x-1 text-gray-500 text-xs">
+                                                    <Clock className="w-3 h-3" />
+                                                    <time className="truncate">
+                                                        {formatEventDate(wish.created_at, 'short', true)} • {formatEventDate(wish.created_at, 'time', true)} WIB
+                                                    </time>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <p className="text-gray-600 text-sm leading-relaxed mb-2 line-clamp-3">
+                                            {wish.message}
+                                        </p>
+
+                                        {Date.now() - new Date(wish.created_at).getTime() < 3600000 && (
+                                            <div className="absolute top-2 right-2">
+                                                <span className="px-2 py-1 rounded-full bg-rose-100 text-rose-600 text-xs font-medium">
+                                                    New
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </motion.div>
+                            ))}
+                            </Marquee>
+                        </AnimatePresence>
+                    )}
+                </div> 
+                */}
+                {/* Wishes Form */}
+                <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.5 }}
+                    className="max-w-2xl mx-auto mt-12"
+                >
+                    <form onSubmit={handleSubmitWish} className="relative">
+                        <div className="backdrop-blur-sm bg-white/80 p-6 rounded-2xl border border-rose-100/50 shadow-lg">
+                            <div className='space-y-2'>
+                                {/* Name Input - Pre-filled from URL or editable */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center space-x-2 text-gray-500 text-sm mb-1">
+                                        <User className="w-4 h-4" />
+                                        <span>Your Name</span>
+                                    </div>
+                                    <input
+                                        type="text"
+                                        placeholder="Enter Your Name..."
+                                        value={guestName}
+                                        onChange={(e) => setGuestName(e.target.value)}
+                                        className="w-full px-4 py-2.5 rounded-xl bg-white/50 border border-rose-100 focus:border-rose-300 focus:ring focus:ring-rose-200 focus:ring-opacity-50 transition-all duration-200 text-gray-700 placeholder-gray-400"
+                                        required
+                                    />
+                                    {guestName && (
+                                        <p className="text-xs text-gray-500 italic">
+                                            Your name was detected from the invitation. You can edit it if you want
+                                        </p>
+                                    )}
+                                </div>
+                                <motion.div
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.1 }}
+                                    className="space-y-2 relative"
+                                >
+                                    <div className="flex items-center space-x-2 text-gray-500 text-sm mb-1">
+                                        <Calendar className="w-4 h-4" />
+                                        <span>Will you be able to attend?</span>
+                                    </div>
+
+                                    {/* Custom Select Button */}
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsOpen(!isOpen)}
+                                        className="w-full px-4 py-2.5 rounded-xl bg-white/50 border border-rose-100 focus:border-rose-300 focus:ring focus:ring-rose-200 focus:ring-opacity-50 transition-all duration-200 text-left flex items-center justify-between"
+                                    >
+                                        <span className={attendance ? 'text-gray-700' : 'text-gray-400'}>
+                                            {attendance ?
+                                                options.find(opt => opt.value === attendance)?.label
+                                                : 'Select attendance...'}
+                                        </span>
+                                        <ChevronDown
+                                            className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${isOpen ? 'transform rotate-180' : ''
+                                                }`}
+                                        />
+                                    </button>
+
+                                    {/* Dropdown Options */}
+                                    <AnimatePresence>
+                                        {isOpen && (
+                                            <motion.div
+                                                initial={{ opacity: 0, y: -10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                exit={{ opacity: 0, y: -10 }}
+                                                className="absolute z-10 w-full mt-1 bg-white rounded-xl shadow-lg border border-rose-100 overflow-hidden"
+                                            >
+                                                {options.map((option) => (
+                                                    <motion.button
+                                                        key={option.value}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setAttendance(option.value);
+                                                            setIsOpen(false);
+                                                        }}
+                                                        whileHover={{ backgroundColor: 'rgb(255, 241, 242)' }}
+                                                        className={`w-full px-4 py-2.5 text-left transition-colors
+                                        ${attendance === option.value
+                                                                ? 'bg-rose-50 text-rose-600'
+                                                                : 'text-gray-700 hover:bg-rose-50'
+                                                            }`}
+                                                    >
+                                                        {option.label}
+                                                    </motion.button>
+                                                ))}
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
+                                </motion.div>
+                                {/* Wish Textarea */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center space-x-2 text-gray-500 text-sm mb-1">
+                                        <MessageCircle className="w-4 h-4" />
+                                        <span>Your Wishes & Prayers</span>
+                                    </div>
+                                    <textarea
+                                        placeholder="Send your wishes and prayers for the bride and groom..."
+                                        value={newWish}
+                                        onChange={(e) => setNewWish(e.target.value)}
+                                        className="w-full h-32 p-4 rounded-xl bg-white/50 border border-rose-100 focus:border-rose-300 focus:ring focus:ring-rose-200 focus:ring-opacity-50 resize-none transition-all duration-200"
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex items-center justify-between mt-4">
+                                <div className="flex items-center space-x-2 text-gray-500">
+                                    <Smile className="w-5 h-5" />
+                                    <span className="text-sm">Send Your Prayers</span>
+                                </div>
+                                <motion.button
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
+                                    whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
+                                    className={`flex items-center space-x-2 px-6 py-2.5 rounded-xl text-white font-medium transition-all duration-200
+                    ${isSubmitting
+                                            ? 'bg-gray-400 cursor-not-allowed'
+                                            : 'bg-rose-500 hover:bg-rose-600'}`}
+                                >
+                                    {isSubmitting ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                        <Send className="w-4 h-4" />
+                                    )}
+                                    <span>{isSubmitting ? 'Sedang Mengirim...' : 'Send Your Prayers'}</span>
+                                </motion.button>
+                            </div>
+                        </div>
+                    </form>
+                </motion.div>
+            </div>
+        </section>
+    </>)
+}
