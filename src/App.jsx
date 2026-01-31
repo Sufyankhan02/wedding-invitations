@@ -22,6 +22,7 @@ import Layout from '@/components/Layout';
 import MainContent from '@/pages/MainContent';
 import LandingPage from '@/pages/LandingPage';
 import AdminDashboard from '@/pages/AdminDashboard';
+import GoogleAnalytics from '@/components/GoogleAnalytics';
 import { Helmet, HelmetProvider } from 'react-helmet-async';
 import { useInvitation } from '@/context/InvitationContext';
 import staticConfig from '@/config/config';
@@ -88,6 +89,7 @@ function App() {
 
   return (
     <HelmetProvider>
+      <GoogleAnalytics />
       <Helmet>
         {/* Primary Meta Tags */}
         <title>{activeConfig.title}</title>
